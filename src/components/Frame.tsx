@@ -17,19 +17,33 @@ import { createStore } from "mipd";
 import { Label } from "~/components/ui/label";
 import { PROJECT_TITLE } from "~/lib/constants";
 
-function ExampleCard() {
+function WeatherCard({ weather }: { weather: any }) {
   return (
     <Card className="border-neutral-200 bg-white">
       <CardHeader>
-        <CardTitle className="text-neutral-900">Welcome to the Frame Template</CardTitle>
+        <CardTitle className="text-neutral-900">Current Weather</CardTitle>
         <CardDescription className="text-neutral-600">
-          This is an example card that you can customize or remove
+          {weather.location.name}, {weather.location.country}
         </CardDescription>
       </CardHeader>
       <CardContent className="text-neutral-800">
-        <p>
-          Your frame content goes here. The text is intentionally dark to ensure good readability.
-        </p>
+        <div className="flex items-center gap-4">
+          <img 
+            src={`https:${weather.current.condition.icon}`} 
+            alt={weather.current.condition.text}
+            className="w-16 h-16"
+          />
+          <div>
+            <p className="text-2xl font-bold">{weather.current.temp_c}°C</p>
+            <p>{weather.current.condition.text}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <div>Humidity: {weather.current.humidity}%</div>
+          <div>Wind: {weather.current.wind_kph} km/h</div>
+          <div>Feels like: {weather.current.feelslike_c}°C</div>
+          <div>UV Index: {weather.current.uv}</div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -40,8 +54,29 @@ export default function Frame(
 ) {
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [context, setContext] = useState<Context.FrameContext>();
-
   const [added, setAdded] = useState(false);
+  const [location, setLocation] = useState('');
+  const [weather, setWeather] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchWeather = useCallback(async (loc: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(
+        `${WEATHER_API_URL}?key=${WEATHER_API_KEY}&q=${encodeURIComponent(loc)}`
+      );
+      if (!response.ok) throw new Error('Location not found');
+      const data = await response.json();
+      setWeather(data);
+    } catch (err) {
+      setError('Could not fetch weather data. Please try another location.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const [addFrameResult, setAddFrameResult] = useState("");
 
@@ -137,7 +172,29 @@ export default function Frame(
     >
       <div className="w-[300px] mx-auto py-2 px-2">
         <h1 className="text-2xl font-bold text-center mb-4 text-neutral-900">{title}</h1>
-        <ExampleCard />
+        
+        <div className="mb-4">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            fetchWeather(location);
+          }}>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Enter city or zip code"
+                className="flex-1 p-2 border rounded"
+              />
+              <PurpleButton type="submit" disabled={loading}>
+                {loading ? 'Loading...' : 'Get Weather'}
+              </PurpleButton>
+            </div>
+          </form>
+          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        </div>
+
+        {weather && <WeatherCard weather={weather} />}
       </div>
     </div>
   );
